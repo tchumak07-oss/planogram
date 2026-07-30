@@ -1994,14 +1994,15 @@
   });
 
   // ---------- photo reports (linked to a point of sale) ----------
-  async function loadReports(outletId){
-    if(!db) return [];
+  async function loadReports(){
+    if(!db) return { ok:false, items:[] };
     try{
-      let query = db.collection('planogram_reports').orderBy('ts','desc').limit(100);
-      if(outletId) query = db.collection('planogram_reports').where('outletId','==',outletId).orderBy('ts','desc').limit(100);
-      const snap = await query.get();
-      return snap.docs.map(d=>({ id:d.id, ...d.data() }));
-    }catch(e){ console.warn(e); return []; }
+      const snap = await db.collection('planogram_reports').orderBy('ts','desc').limit(300).get();
+      return { ok:true, items: snap.docs.map(d=>({ id:d.id, ...d.data() })) };
+    }catch(e){
+      console.warn('loadReports failed', e);
+      return { ok:false, items:[] };
+    }
   }
 
   function outletName(outletId){
@@ -2021,7 +2022,12 @@
     const list = document.getElementById('reportsList');
     list.innerHTML = '<div class="empty-note">Завантаження…</div>';
     const selectedOutlet = document.getElementById('reportOutletSelect').value;
-    const reports = await loadReports(selectedOutlet || null);
+    const { ok, items } = await loadReports();
+    if(!ok){
+      list.innerHTML = '<div class="empty-note">⚠️ Не вдалося завантажити фото-звіти з бази. Відкрий консоль браузера (F12 → Console) — якщо там помилка про Firestore rules/permissions, онови правила безпеки (дивись інструкцію на початку файлу).</div>';
+      return;
+    }
+    const reports = selectedOutlet ? items.filter(r=>r.outletId===selectedOutlet) : items;
     if(reports.length === 0){
       list.innerHTML = '<div class="empty-note">Фото-звітів ще немає.</div>';
       return;
