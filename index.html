@@ -194,6 +194,7 @@
   .report-card{background:#fffdf8; border:1px solid #e4d6b7; border-radius:8px; overflow:hidden;}
   .report-card img{width:100%; height:130px; object-fit:cover; display:block;}
   .report-card .r-info{padding:7px 9px; display:flex; justify-content:space-between; align-items:center; gap:6px;}
+  .report-card .r-outlet{font-size:11.5px; font-weight:700; color:#3a2f22; margin-bottom:1px;}
   .report-card .r-date{font-size:10.5px; color:#8a7a5f;}
   .report-card .r-del{border:none; background:transparent; color:#b09a76; cursor:pointer; font-size:13px;}
   .report-card .r-del:hover{color:var(--red);}
@@ -694,11 +695,12 @@
   <div class="modal pdf-modal">
     <h3>📷 Фото-звіти</h3>
     <p style="font-size:12px; color:#7a6a52; margin:0 0 10px;">
-      Завантаж фото реальної вітрини (наприклад, для звітності чи перевірки виконання планограми).
+      Завантаж фото реальної вітрини по точках продажу (наприклад, для звітності чи перевірки виконання планограми).
     </p>
-    <div class="board-actions" style="margin-bottom:12px;">
+    <div class="board-actions" style="margin-bottom:12px; align-items:center;">
+      <select id="reportOutletSelect" style="padding:8px 10px; border-radius:7px; border:1px solid #cbb287; background:#fffdf8; color:#3a2f22; font-size:13px;"></select>
       <input type="file" id="reportPhotoInput" accept="image/*" multiple style="display:none">
-      <button class="btn btn-gold" id="btnReportAdd">📷 Додати фото</button>
+      <button class="btn btn-gold" id="btnReportAdd">📷 Додати фото до обраної точки</button>
     </div>
     <div id="reportsList" style="max-height:55vh; overflow-y:auto;"></div>
     <div class="modal-actions" style="margin-top:12px;">
@@ -1886,6 +1888,9 @@
       const r = await cloudStorage.get(OUTLETS_KEY);
       outlets = (r && r.value) ? JSON.parse(r.value) : [];
     }catch(e){ outlets = []; }
+    let backfilled = false;
+    outlets.forEach(o=>{ if(!o.id){ o.id = uid(); backfilled = true; } });
+    if(backfilled) await persistOutlets();
   }
   async function persistOutlets(){
     try{ await cloudStorage.set(OUTLETS_KEY, JSON.stringify(outlets)); }
@@ -1938,7 +1943,7 @@
     if(e.target.id === 'outletsModalBg') document.getElementById('outletsModalBg').classList.remove('open');
   });
   document.getElementById('btnOutletAdd').addEventListener('click', ()=>{
-    outlets.push({name:'', address:'', phone:''});
+    outlets.push({id:uid(), name:'', address:'', phone:''});
     logAction('Додано нову точку продажу (вручну)');
     persistOutlets();
     renderOutlets();
@@ -1970,6 +1975,7 @@
         const name = String(row[nameIdx]==null?'':row[nameIdx]).trim();
         if(!name) return;
         outlets.push({
+          id: uid(),
           name,
           address: addrIdx!==-1 ? String(row[addrIdx]==null?'':row[addrIdx]).trim() : '',
           phone: phoneIdx!==-1 ? String(row[phoneIdx]==null?'':row[phoneIdx]).trim() : ''
@@ -1987,19 +1993,35 @@
     }
   });
 
-  // ---------- photo reports ----------
-  async function loadReports(){
+  // ---------- photo reports (linked to a point of sale) ----------
+  async function loadReports(outletId){
     if(!db) return [];
     try{
-      const snap = await db.collection('planogram_reports').orderBy('ts','desc').limit(60).get();
+      let query = db.collection('planogram_reports').orderBy('ts','desc').limit(100);
+      if(outletId) query = db.collection('planogram_reports').where('outletId','==',outletId).orderBy('ts','desc').limit(100);
+      const snap = await query.get();
       return snap.docs.map(d=>({ id:d.id, ...d.data() }));
     }catch(e){ console.warn(e); return []; }
+  }
+
+  function outletName(outletId){
+    const o = outlets.find(x=>x.id===outletId);
+    return o ? (o.name || 'Без назви') : 'Точку видалено';
+  }
+
+  function populateReportOutletSelect(){
+    const sel = document.getElementById('reportOutletSelect');
+    const prevValue = sel.value;
+    sel.innerHTML = '<option value="">— Усі точки (перегляд) —</option>' +
+      outlets.map(o=>`<option value="${o.id}">${escapeHtml(o.name || 'Без назви')}</option>`).join('');
+    if(outlets.some(o=>o.id===prevValue)) sel.value = prevValue;
   }
 
   async function renderReports(){
     const list = document.getElementById('reportsList');
     list.innerHTML = '<div class="empty-note">Завантаження…</div>';
-    const reports = await loadReports();
+    const selectedOutlet = document.getElementById('reportOutletSelect').value;
+    const reports = await loadReports(selectedOutlet || null);
     if(reports.length === 0){
       list.innerHTML = '<div class="empty-note">Фото-звітів ще немає.</div>';
       return;
@@ -2013,7 +2035,10 @@
       card.innerHTML = `
         <img src="${r.photo}" alt="">
         <div class="r-info">
-          <span class="r-date">${d.toLocaleDateString('uk-UA')} ${d.toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'})}</span>
+          <span>
+            <div class="r-outlet">${escapeHtml(outletName(r.outletId))}</div>
+            <span class="r-date">${d.toLocaleDateString('uk-UA')} ${d.toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'})}</span>
+          </span>
           <button class="r-del" data-action="del-report" title="Видалити">✕</button>
         </div>`;
       card.querySelector('[data-action="del-report"]').addEventListener('click', async ()=>{
@@ -2029,10 +2054,14 @@
     list.appendChild(grid);
   }
 
-  document.getElementById('btnReports').addEventListener('click', ()=>{
+  document.getElementById('btnReports').addEventListener('click', async ()=>{
     document.getElementById('reportsModalBg').classList.add('open');
+    document.getElementById('reportsList').innerHTML = '<div class="empty-note">Завантаження…</div>';
+    await loadOutlets();
+    populateReportOutletSelect();
     renderReports();
   });
+  document.getElementById('reportOutletSelect').addEventListener('change', renderReports);
   document.getElementById('reportsModalClose').addEventListener('click', ()=>{
     document.getElementById('reportsModalBg').classList.remove('open');
   });
@@ -2040,6 +2069,11 @@
     if(e.target.id === 'reportsModalBg') document.getElementById('reportsModalBg').classList.remove('open');
   });
   document.getElementById('btnReportAdd').addEventListener('click', ()=>{
+    const outletId = document.getElementById('reportOutletSelect').value;
+    if(!outletId){
+      showToast('Спершу обери конкретну точку продажу зі списку');
+      return;
+    }
     document.getElementById('reportPhotoInput').click();
   });
   document.getElementById('reportPhotoInput').addEventListener('change', async (e)=>{
@@ -2047,17 +2081,19 @@
     e.target.value = '';
     if(files.length === 0) return;
     if(!db){ showToast('Firebase не налаштовано'); return; }
+    const outletId = document.getElementById('reportOutletSelect').value;
+    if(!outletId){ showToast('Спершу обери точку продажу'); return; }
     let added = 0;
     for(const file of files){
       if(!file.type.startsWith('image/')) continue;
       try{
         const dataUrl = await resizeImageFile(file, 900);
-        await db.collection('planogram_reports').add({ photo: dataUrl, ts: Date.now(), role: currentRole || 'unknown' });
+        await db.collection('planogram_reports').add({ photo: dataUrl, outletId, ts: Date.now(), role: currentRole || 'unknown' });
         added++;
       }catch(err){ console.error(err); }
     }
     if(added){
-      logAction(`Завантажено фото-звітів: ${added}`);
+      logAction(`Завантажено фото-звітів для «${outletName(outletId)}»: ${added}`);
       showToast(`Додано фото: ${added}`);
       renderReports();
     } else {
