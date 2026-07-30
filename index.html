@@ -106,6 +106,60 @@
   .pin-input:focus{border-color:var(--gold-dark);}
   .pin-error{font-size:12.5px; color:var(--red); min-height:16px; margin:10px 0 0;}
 
+  .role-badge{
+    font-size:12px; font-weight:700; color:var(--gold);
+    background:rgba(217,164,65,.12); border:1px solid rgba(217,164,65,.35);
+    border-radius:20px; padding:7px 14px; display:flex; align-items:center;
+  }
+
+  /* Staff role: catalog editing (SKU management) is hidden — only shelf building stays available */
+  .role-staff .add-form,
+  .role-staff #btnImport,
+  .role-staff #excelInput,
+  .role-staff #btnImportJson,
+  .role-staff #btnReset,
+  .role-staff .chip-actions{
+    display:none !important;
+  }
+
+  /* ---------- Gallery (assortment view) ---------- */
+  .gallery-modal{
+    max-width:1000px; width:96%; max-height:90vh;
+    display:flex; flex-direction:column; padding:20px 22px;
+  }
+  .gallery-head{
+    display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap;
+  }
+  .gallery-head h3{margin:0; flex-shrink:0;}
+  .gallery-head input{
+    flex:1; min-width:160px; font-family:'Golos Text', sans-serif; font-size:13px;
+    padding:8px 10px; border-radius:7px; border:1px solid #cbb287; background:#fffdf8; color:#3a2f22;
+  }
+  .gallery-body{overflow-y:auto; padding-right:4px;}
+  .gallery-cat-title{
+    font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+    color:#6b5a3f; margin:18px 0 10px; display:flex; align-items:center; gap:8px;
+  }
+  .gallery-cat-title:first-child{margin-top:0;}
+  .gallery-cat-title .dot{width:10px; height:10px; border-radius:50%;}
+  .gallery-grid{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(170px, 1fr)); gap:14px;
+  }
+  .gallery-card{
+    background:#fffdf8; border:1px solid #e4d6b7; border-radius:10px; overflow:hidden;
+    box-shadow:0 3px 8px rgba(0,0,0,.08);
+  }
+  .gallery-card .g-photo{
+    width:100%; height:150px; object-fit:cover; display:block; background:#eee0c4;
+  }
+  .gallery-card .g-photo-fallback{
+    width:100%; height:150px; display:flex; align-items:center; justify-content:center;
+    font-size:36px; font-weight:700; color:#fff;
+  }
+  .gallery-card .g-info{padding:10px 12px;}
+  .gallery-card .g-name{font-size:13.5px; font-weight:700; color:#3a2f22; line-height:1.3; margin-bottom:3px;}
+  .gallery-card .g-meta{font-size:11px; color:#8a7a5f;}
+
   /* ---------- Header / chalkboard ---------- */
   .board{
     background:
@@ -444,12 +498,16 @@
         <input id="titleInput" type="text" value="Вітрина кондитерської" maxlength="60">
       </div>
       <div class="board-actions">
+        <span class="role-badge" id="roleBadge"></span>
+        <button class="btn" id="btnLock" title="Заблокувати / змінити користувача">🔒 Змінити користувача</button>
         <button class="btn" id="btnImport" title="Колонки: Назва, Категорія, Розмір">📥 З Excel</button>
         <input type="file" id="excelInput" accept=".xlsx,.xls,.csv" style="display:none">
+        <button class="btn" id="btnImportJson" title="Відновити дані зі старого JSON-експорту">⬆ Імпорт JSON</button>
         <button class="btn" id="btnMy">📋 Мої вітрини</button>
         <button class="btn" id="btnSave">💾 Зберегти</button>
         <button class="btn" id="btnPrint">🖨 Друк</button>
         <button class="btn" id="btnPdf">📄 PDF</button>
+        <button class="btn" id="btnGallery">🖼 Асортимент</button>
         <button class="btn btn-outline-red" id="btnReset">↺ Скинути</button>
       </div>
     </div>
@@ -552,6 +610,34 @@
   </div>
 </div>
 
+<div class="modal-bg" id="galleryModalBg">
+  <div class="modal gallery-modal">
+    <div class="gallery-head">
+      <h3>🖼 Асортимент</h3>
+      <input type="text" id="gallerySearch" placeholder="🔍 Пошук товару...">
+      <button class="btn" id="galleryClose">✕ Закрити</button>
+    </div>
+    <div class="gallery-body" id="galleryBody"></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="jsonModalBg">
+  <div class="modal pdf-modal">
+    <h3>Імпорт зі старого JSON</h3>
+    <p style="font-size:12.5px; color:#7a6a52; margin:0 0 10px;">
+      Встав сюди вміст файлу, отриманого з інструменту відновлення (planogram_old_data.json),
+      або завантаж його кнопкою нижче. Товари з нього додадуться до поточного каталогу
+      (наявні товари не видаляються).
+    </p>
+    <input type="file" id="jsonFileInput" accept=".json" style="margin-bottom:10px;">
+    <textarea id="jsonPasteArea" class="modal-input" style="height:180px; font-family:monospace; font-size:11.5px;" placeholder='{"current": {...}, "saved": [...] }'></textarea>
+    <div class="modal-actions" style="margin-top:10px;">
+      <button class="btn btn-gold" id="jsonImportGo">Імпортувати</button>
+      <button class="btn" id="jsonModalClose">Закрити</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -585,13 +671,18 @@
     appId: "1:259960321443:web:03ca6f2b85f9589df4d616"
   };
 
-  // 2) PIN для входу — тут зберігається НЕ сам PIN, а його SHA-256 хеш, щоб він
-  //    не був видний прямим текстом у коді сторінки. Щоб згенерувати хеш свого
-  //    PIN-коду: відкрий консоль браузера (F12) на будь-якій сторінці і виконай:
+  // 2) PIN-и для входу — тут зберігаються НЕ самі PIN, а їх SHA-256 хеші.
+  //    Щоб згенерувати хеш свого PIN-коду: відкрий консоль браузера (F12) і виконай:
   //      crypto.subtle.digest('SHA-256', new TextEncoder().encode('ТВІЙ_PIN'))
   //        .then(b => console.log(Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('')))
-  //    і встав отриманий рядок нижче замість поточного значення (це хеш "0000").
-  const PIN_HASH = "52bb7cc738dbf5e5eee2c76754d87904e6750c63eda5e0a866197d2e16d9c142";
+  //    Є два рівні доступу:
+  //      ADMIN — повний доступ (керує каталогом товарів + планограмою).
+  //      STAFF — може лише розкладати товари по полицях, зберігати й друкувати,
+  //              але НЕ може додавати/редагувати/видаляти товари в каталозі.
+  const PIN_HASH_ADMIN = "52bb7cc738dbf5e5eee2c76754d87904e6750c63eda5e0a866197d2e16d9c142"; // 1983
+  const PIN_HASH_STAFF = "fe675fe7aaee830b6fed09b64e034f84dcbdaeb429d9cccd4ebb90e15af8dd71"; // 1001
+
+  let currentRole = null; // 'admin' | 'staff'
 
   async function sha256Hex(text){
     const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
@@ -642,6 +733,25 @@
     }
   };
 
+  function applyRoleUI(){
+    document.body.classList.remove('role-admin','role-staff');
+    document.body.classList.add('role-' + currentRole);
+    const badge = document.getElementById('roleBadge');
+    if(badge){
+      badge.textContent = currentRole === 'admin' ? '👤 Адмін' : '👤 Планограмник';
+    }
+  }
+
+  function lockApp(){
+    currentRole = null;
+    document.body.classList.remove('role-admin','role-staff');
+    document.getElementById('appRoot').style.display = 'none';
+    document.getElementById('pinGate').style.display = 'flex';
+    document.getElementById('pinInput').value = '';
+    document.getElementById('pinError').textContent = '';
+    setTimeout(()=> document.getElementById('pinInput').focus(), 100);
+  }
+
   function setupPinGate(){
     const gate = document.getElementById('pinGate');
     const appRoot = document.getElementById('appRoot');
@@ -653,11 +763,19 @@
       const val = input.value.trim();
       if(!val){ return; }
       const hash = await sha256Hex(val);
-      if(hash === PIN_HASH){
+      let role = null;
+      if(hash === PIN_HASH_ADMIN) role = 'admin';
+      else if(hash === PIN_HASH_STAFF) role = 'staff';
+
+      if(role){
+        currentRole = role;
         gate.style.display = 'none';
         appRoot.style.display = '';
-        window.__planogramUnlocked = true;
-        window.dispatchEvent(new Event('planogram-unlocked'));
+        applyRoleUI();
+        if(!window.__planogramUnlocked){
+          window.__planogramUnlocked = true;
+          window.dispatchEvent(new Event('planogram-unlocked'));
+        }
       } else {
         errEl.textContent = 'Невірний PIN. Спробуй ще раз.';
         input.value = '';
@@ -1249,6 +1367,8 @@
     if(e.key === 'Enter') document.getElementById('btnAddProduct').click();
   });
 
+  document.getElementById('btnLock').addEventListener('click', lockApp);
+
   document.getElementById('btnReset').addEventListener('click', async ()=>{
     const ok = await showConfirm('Скинути поточну вітрину і почати заново? Збережені вітрини не постраждають.', 'Скинути вітрину?');
     if(!ok) return;
@@ -1473,6 +1593,66 @@
   }
 
   document.getElementById('btnPdf').addEventListener('click', generatePDF);
+
+  // ---------- gallery (assortment view with large photos) ----------
+  function renderGallery(){
+    const body = document.getElementById('galleryBody');
+    const q = document.getElementById('gallerySearch').value.trim().toLowerCase();
+    body.innerHTML = '';
+
+    const visible = q
+      ? state.catalog.filter(p => p.name.toLowerCase().includes(q) || CAT_LABELS[p.cat].toLowerCase().includes(q))
+      : state.catalog;
+
+    if(state.catalog.length === 0){
+      body.innerHTML = '<div class="empty-note">Каталог порожній.</div>';
+      return;
+    }
+    if(visible.length === 0){
+      body.innerHTML = '<div class="empty-note">Нічого не знайдено.</div>';
+      return;
+    }
+
+    CAT_ORDER.forEach(catKey=>{
+      const items = visible.filter(p=>p.cat===catKey);
+      if(items.length === 0) return;
+
+      const title = document.createElement('div');
+      title.className = 'gallery-cat-title';
+      title.innerHTML = `<span class="dot" style="background:${CAT_COLORS[catKey]}"></span>${CAT_LABELS[catKey]} <span style="opacity:.6; font-weight:400;">(${items.length})</span>`;
+      body.appendChild(title);
+
+      const grid = document.createElement('div');
+      grid.className = 'gallery-grid';
+      items.forEach(p=>{
+        const card = document.createElement('div');
+        card.className = 'gallery-card';
+        card.innerHTML = `
+          ${p.photo
+            ? `<img class="g-photo" src="${p.photo}" alt="">`
+            : `<div class="g-photo-fallback" style="background:${CAT_COLORS[catKey]}">${escapeHtml((p.name||'?').charAt(0).toUpperCase())}</div>`}
+          <div class="g-info">
+            <div class="g-name">${escapeHtml(p.name)}</div>
+            <div class="g-meta">${SIZE_LABELS[p.size]}</div>
+          </div>`;
+        grid.appendChild(card);
+      });
+      body.appendChild(grid);
+    });
+  }
+
+  document.getElementById('btnGallery').addEventListener('click', ()=>{
+    document.getElementById('gallerySearch').value = '';
+    renderGallery();
+    document.getElementById('galleryModalBg').classList.add('open');
+  });
+  document.getElementById('gallerySearch').addEventListener('input', renderGallery);
+  document.getElementById('galleryClose').addEventListener('click', ()=>{
+    document.getElementById('galleryModalBg').classList.remove('open');
+  });
+  document.getElementById('galleryModalBg').addEventListener('click', (e)=>{
+    if(e.target.id === 'galleryModalBg') document.getElementById('galleryModalBg').classList.remove('open');
+  });
   document.getElementById('pdfModalClose').addEventListener('click', ()=>{
     document.getElementById('pdfModalBg').classList.remove('open');
   });
@@ -1578,6 +1758,103 @@
       console.error(err);
       showToast('Не вдалося прочитати файл');
     }
+  });
+
+  // ---------- JSON import (recover data from old storage) ----------
+  document.getElementById('btnImportJson').addEventListener('click', ()=>{
+    document.getElementById('jsonModalBg').classList.add('open');
+  });
+  document.getElementById('jsonModalClose').addEventListener('click', ()=>{
+    document.getElementById('jsonModalBg').classList.remove('open');
+  });
+  document.getElementById('jsonModalBg').addEventListener('click', (e)=>{
+    if(e.target.id === 'jsonModalBg') document.getElementById('jsonModalBg').classList.remove('open');
+  });
+  document.getElementById('jsonFileInput').addEventListener('change', (e)=>{
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{ document.getElementById('jsonPasteArea').value = reader.result; };
+    reader.onerror = ()=> showToast('Не вдалося прочитати файл');
+    reader.readAsText(file);
+  });
+
+  function mergeCatalogFrom(sourceCatalog, idMap){
+    let added = 0, skippedDupe = 0;
+    (sourceCatalog || []).forEach(p=>{
+      if(!p || !p.name) return;
+      const alreadyExists = state.catalog.some(existing =>
+        existing.name === p.name && (existing.photo || null) === (p.photo || null));
+      if(alreadyExists){
+        const match = state.catalog.find(existing =>
+          existing.name === p.name && (existing.photo || null) === (p.photo || null));
+        idMap.set(p.id, match.id);
+        skippedDupe++;
+        return;
+      }
+      const newId = uid();
+      idMap.set(p.id, newId);
+      state.catalog.push({
+        id: newId,
+        name: p.name,
+        cat: p.cat || 'other',
+        size: p.size || 'M',
+        photo: p.photo || null
+      });
+      added++;
+    });
+    return { added, skippedDupe };
+  }
+
+  document.getElementById('jsonImportGo').addEventListener('click', ()=>{
+    const raw = document.getElementById('jsonPasteArea').value.trim();
+    if(!raw){ showToast('Встав або завантаж JSON'); return; }
+    let obj;
+    try{ obj = JSON.parse(raw); }
+    catch(e){ showToast('Файл пошкоджений або це не JSON'); return; }
+
+    let totalAdded = 0, totalDupes = 0;
+    const idMap = new Map();
+
+    if(obj.current && Array.isArray(obj.current.catalog)){
+      const r = mergeCatalogFrom(obj.current.catalog, idMap);
+      totalAdded += r.added; totalDupes += r.skippedDupe;
+    }
+    if(Array.isArray(obj.saved)){
+      obj.saved.forEach(s=>{
+        if(s && s.data && Array.isArray(s.data.catalog)){
+          const r = mergeCatalogFrom(s.data.catalog, idMap);
+          totalAdded += r.added; totalDupes += r.skippedDupe;
+        }
+      });
+    }
+    // also try to recreate shelf placement from the "current" snapshot, if present
+    let placedCount = 0;
+    if(obj.current && Array.isArray(obj.current.shelves)){
+      if(obj.current.shelves.length > state.shelfCount){
+        setShelfCount(obj.current.shelves.length);
+      }
+      obj.current.shelves.forEach((items, shelfIdx)=>{
+        if(shelfIdx >= state.shelves.length) return;
+        (items || []).forEach(inst=>{
+          const newProductId = idMap.get(inst.productId);
+          if(!newProductId) return;
+          addInstance(shelfIdx, newProductId);
+          placedCount++;
+        });
+      });
+    }
+
+    if(totalAdded === 0 && placedCount === 0){
+      showToast('Нових товарів не знайдено (можливо, вже імпортовано раніше)');
+      return;
+    }
+    render();
+    schedulePersist();
+    document.getElementById('jsonModalBg').classList.remove('open');
+    document.getElementById('jsonPasteArea').value = '';
+    showToast(`Імпортовано товарів: ${totalAdded}` + (totalDupes ? `, вже було: ${totalDupes}` : '') + (placedCount ? `, розставлено на полицях: ${placedCount}` : ''));
   });
 
   // ---------- saved layouts ----------
