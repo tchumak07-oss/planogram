@@ -1446,7 +1446,6 @@
       const margin = 40;
       const usableW = pageW - margin*2;
       const gap = 10;
-      const CARD_W = 108; // fixed width for every card — keeps rows aligned instead of drifting
       let y = margin;
 
       // ---- title ----
@@ -1473,7 +1472,7 @@
         const cardsMeta = items.map(inst=>{
           const p = findProduct(inst.productId);
           if(!p) return null;
-          const w = CARD_W;
+          const w = Math.max(50, Math.min(170, inst.w || BASE_WIDTH[p.size]));
           const photoH = p.photo ? Math.round(w*0.68) : 0;
           const h = photoH + 26;
           return {inst, p, w, h, photoH};
