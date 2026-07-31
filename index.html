@@ -129,6 +129,8 @@
     display:none !important;
   }
   #storeReportPanel{display:none;}
+  .role-store #storeReportPanel{display:block !important;}
+  .role-store #mainLayoutArea{display:none !important;}
   .store-panel-box{
     background:var(--paper); color:#3a2f22; border-radius:12px; padding:24px;
     max-width:920px; margin:0 auto;
@@ -984,15 +986,8 @@
       else if(currentRole === 'staff') badge.textContent = '👤 Планограмник';
       else badge.textContent = `🏬 ${currentStoreOutletName}`;
     }
-    const storePanel = document.getElementById('storeReportPanel');
-    const mainLayout = document.getElementById('mainLayoutArea');
-    if(currentRole === 'store'){
-      if(storePanel) storePanel.style.display = 'block';
-      if(mainLayout) mainLayout.style.display = 'none';
-    } else {
-      if(storePanel) storePanel.style.display = 'none';
-      if(mainLayout) mainLayout.style.display = '';
-    }
+    // visibility of #storeReportPanel vs #mainLayoutArea is driven purely by the
+    // .role-store body class in CSS — no inline style manipulation needed here.
   }
 
   function lockApp(){
