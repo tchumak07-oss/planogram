@@ -680,10 +680,15 @@
           <input type="file" id="excelInput" accept=".xlsx,.xls,.csv" style="display:none">
         </div>
 
-        <button class="btn" id="btnMy">📋 Мої вітрини</button>
-        <button class="btn" id="btnSave">💾 Зберегти</button>
-        <button class="btn" id="btnPrint">🖨 Друк</button>
-        <button class="btn" id="btnPdf">📄 PDF</button>
+        <div class="dropdown" id="showcaseDropdown">
+          <button class="btn" id="btnShowcaseMenu">🗄 Вітрини ▾</button>
+          <div class="dropdown-menu" id="showcaseMenu">
+            <button class="dropdown-item" id="btnMy">📋 Мої вітрини</button>
+            <button class="dropdown-item" id="btnSave">💾 Зберегти</button>
+            <button class="dropdown-item" id="btnPrint">🖨 Друк</button>
+            <button class="dropdown-item" id="btnPdf">📄 PDF</button>
+          </div>
+        </div>
         <button class="btn" id="btnGallery">🖼 Асортимент</button>
         <button class="btn" id="btnLog">📜 Лог змін</button>
         <button class="btn btn-gold" id="btnPublish">📌 Опублікувати для точки</button>
@@ -2741,8 +2746,20 @@
   document.getElementById('dataMenu').addEventListener('click', (e)=>{
     if(e.target.closest('.dropdown-item')) dataDropdown.classList.remove('open');
   });
+
+  // ---------- showcase (Вітрини) dropdown menu ----------
+  const showcaseDropdown = document.getElementById('showcaseDropdown');
+  document.getElementById('btnShowcaseMenu').addEventListener('click', (e)=>{
+    e.stopPropagation();
+    showcaseDropdown.classList.toggle('open');
+  });
+  document.getElementById('showcaseMenu').addEventListener('click', (e)=>{
+    if(e.target.closest('.dropdown-item')) showcaseDropdown.classList.remove('open');
+  });
+
   document.addEventListener('click', (e)=>{
     if(!dataDropdown.contains(e.target)) dataDropdown.classList.remove('open');
+    if(!showcaseDropdown.contains(e.target)) showcaseDropdown.classList.remove('open');
   });
 
   document.getElementById('btnImport').addEventListener('click', ()=>{
