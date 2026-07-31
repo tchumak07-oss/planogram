@@ -1047,15 +1047,22 @@
 
       if(role){
         currentRole = role;
-        gate.style.display = 'none';
-        appRoot.style.display = '';
-        applyRoleUI();
-        if(!window.__planogramUnlocked){
-          window.__planogramUnlocked = true;
-          window.dispatchEvent(new Event('planogram-unlocked'));
-        }
-        if(role === 'store'){
-          window.dispatchEvent(new Event('store-unlocked'));
+        try{
+          gate.style.display = 'none';
+          appRoot.style.display = '';
+          applyRoleUI();
+          if(!window.__planogramUnlocked){
+            window.__planogramUnlocked = true;
+            window.dispatchEvent(new Event('planogram-unlocked'));
+          }
+          if(role === 'store'){
+            window.dispatchEvent(new Event('store-unlocked'));
+          }
+        }catch(err){
+          console.error('Unlock rendering failed', err);
+          gate.style.display = 'flex';
+          appRoot.style.display = 'none';
+          errEl.textContent = 'Сталася помилка при завантаженні. Онови сторінку (Ctrl+Shift+R) і спробуй ще раз.';
         }
       } else {
         errEl.textContent = 'Невірний PIN. Спробуй ще раз.';
