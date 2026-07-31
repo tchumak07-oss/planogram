@@ -1859,6 +1859,7 @@
       showToast('PDF-бібліотека ще завантажується, спробуй за секунду ще раз');
       return;
     }
+    await appReadyPromise;
     try{
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({unit:'pt', format:'a4'});
@@ -2104,6 +2105,7 @@
       showToast('Бібліотека Excel ще завантажується, спробуй за секунду ще раз');
       return;
     }
+    await appReadyPromise;
     if(state.catalog.length === 0){
       showToast('Каталог порожній — нема що експортувати');
       return;
@@ -2408,6 +2410,7 @@
   const PUBLISHED_PREFIX = 'planogram:published:';
 
   async function openPublishModal(){
+    await appReadyPromise;
     await loadOutlets();
     const sel = document.getElementById('publishOutletSelect');
     if(outlets.length === 0){
@@ -2667,10 +2670,12 @@
     }
   });
 
-  document.getElementById('btnGallery').addEventListener('click', ()=>{
+  document.getElementById('btnGallery').addEventListener('click', async ()=>{
     document.getElementById('gallerySearch').value = '';
-    renderGallery();
     document.getElementById('galleryModalBg').classList.add('open');
+    document.getElementById('galleryBody').innerHTML = '<div class="empty-note">Завантаження…</div>';
+    await appReadyPromise;
+    renderGallery();
   });
   document.getElementById('gallerySearch').addEventListener('input', renderGallery);
   document.getElementById('galleryClose').addEventListener('click', ()=>{
@@ -3111,12 +3116,16 @@
   });
 
   // ---------- init ----------
+  let appReadyResolve;
+  const appReadyPromise = new Promise(r=>{ appReadyResolve = r; });
+
   async function init(){
     const saved = await loadCurrent();
     if(saved) state = normalizeLoaded(saved);
     document.getElementById('titleInput').value = state.title;
     document.getElementById('shelfCountLabel').textContent = state.shelfCount;
     render();
+    appReadyResolve();
   }
   window.addEventListener('planogram-unlocked', init, { once:true });
 
