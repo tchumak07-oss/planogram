@@ -49,6 +49,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   :root{
     --board: #2b2420;
@@ -261,6 +262,7 @@
   .analysis-status.ok{background:rgba(111,143,106,.18); color:#4a6b46;}
   .analysis-status.missing{background:rgba(184,84,59,.18); color:#8a3d29;}
   .report-card .r-date{font-size:10.5px; color:#8a7a5f;}
+  .report-card .r-comment{font-size:11px; color:#5a4c38; margin-top:3px; line-height:1.3; font-style:italic;}
   .report-card .r-del{border:none; background:transparent; color:#b09a76; cursor:pointer; font-size:13px;}
   .report-card .r-del:hover{color:var(--red);}
 
@@ -584,6 +586,50 @@
   }
   .toast.show{opacity:1; transform:translateX(-50%) translateY(-4px);}
 
+  /* ==================== MOBILE ADAPTATION ====================
+     Applies when the viewport is narrow — covers phones/tablets and resized
+     desktop windows alike. The .is-mobile body class (from JS device detection)
+     is also available for any device-specific (not just width-based) tweaks. */
+  .is-mobile body{ font-size:16px; }
+
+  @media (max-width: 860px){
+    .app{padding:10px 10px 40px;}
+    .board{padding:16px 14px;}
+    #titleInput{font-size:28px;}
+    .board-top{flex-direction:column; align-items:stretch;}
+    .board-actions{
+      display:flex; flex-wrap:wrap; gap:7px;
+    }
+    .board-actions .btn, .board-actions .dropdown{width:auto;}
+    .btn{font-size:14px; padding:11px 13px; min-height:40px;}
+    .shelf-controls{flex-wrap:wrap; gap:8px 12px;}
+    .layout{flex-direction:column;}
+    .catalog{width:100%;}
+    .showcase{width:100%;}
+    .modal{max-width:96vw !important; width:96vw !important;}
+    .pdf-modal{max-width:96vw !important;}
+    .gallery-grid{grid-template-columns:repeat(auto-fill, minmax(130px,1fr));}
+    .report-grid{grid-template-columns:repeat(auto-fill, minmax(130px,1fr));}
+    .chip .name{font-size:13px;}
+    .chip .meta{font-size:11px;}
+    .p-name, .placed .p-name{font-size:12px !important;}
+    .store-panel-box{padding:16px; max-width:100%;}
+    .store-panel-head{flex-direction:column; align-items:stretch; gap:10px;}
+    .outlet-row{flex-wrap:wrap;}
+    .outlet-row input{flex:1 1 45%; min-width:110px;}
+    .pin-box{padding:26px 20px;}
+    .pin-box h2{font-size:24px;}
+    .pin-input{font-size:26px; padding:14px 10px;}
+    .analysis-table{font-size:12px;}
+    .board-actions{justify-content:flex-start;}
+  }
+
+  @media (max-width: 480px){
+    #titleInput{font-size:23px;}
+    .btn{font-size:13.5px; padding:11px 12px;}
+    .gallery-grid, .report-grid{grid-template-columns:repeat(auto-fill, minmax(110px,1fr));}
+  }
+
   @media print{
     body{background:#fff; color:#000;}
     .board{border-color:#333; box-shadow:none; background:#fff;}
@@ -669,7 +715,8 @@
       <div id="storePlanogramView" class="store-planogram-view"></div>
 
       <h3 class="store-section-title">📷 Фото-звіти</h3>
-      <input type="file" id="storePhotoInput" accept="image/*" multiple style="display:none">
+      <input type="file" id="storePhotoInput" accept="image/*" capture="environment" multiple style="display:none">
+      <input type="text" id="storeCommentInput" placeholder="Коментар до фото (необов'язково)" style="width:100%; box-sizing:border-box; padding:9px 11px; border-radius:7px; border:1px solid #cbb287; background:#fffdf8; color:#3a2f22; font-size:13px; margin-bottom:10px;">
       <button class="btn btn-gold" id="btnStorePhotoAdd" style="margin-bottom:16px;">📷 Додати фото</button>
       <div id="storeReportsList" class="report-grid"></div>
     </div>
@@ -783,6 +830,20 @@
   </div>
 </div>
 
+<div class="modal-bg" id="qrModalBg">
+  <div class="modal">
+    <h3>🔗 QR-код для входу</h3>
+    <p style="font-size:12.5px; color:#7a6a52; margin:0 0 14px;" id="qrModalDesc"></p>
+    <div id="qrCodeHolder" style="display:flex; justify-content:center; background:#fff; padding:16px; border-radius:8px; margin-bottom:12px;"></div>
+    <p style="font-size:11.5px; color:#b8543b; margin:0 0 14px;">
+      ⚠️ Збережи або роздрукуй це зараз — після закриття вікна PIN у відкритому вигляді більше ніде не показується.
+    </p>
+    <div class="modal-actions">
+      <button class="btn" id="qrModalClose">Закрити</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="publishModalBg">
   <div class="modal">
     <h3>📌 Опублікувати для точки</h3>
@@ -793,7 +854,8 @@
     <select id="publishOutletSelect" class="modal-input"></select>
     <div id="publishStatusList" style="max-height:30vh; overflow-y:auto; margin-bottom:6px;"></div>
     <div class="modal-actions">
-      <button class="btn btn-gold" id="publishGo">Опублікувати поточну вітрину</button>
+      <button class="btn btn-gold" id="publishGo">Опублікувати для обраної</button>
+      <button class="btn btn-gold" id="publishGoAll">Опублікувати для ВСІХ точок</button>
       <button class="btn" id="publishModalClose">Закрити</button>
     </div>
   </div>
@@ -817,6 +879,7 @@
     <div id="analysisSummary" style="font-size:13px; font-weight:600; color:#4a3826; margin-bottom:10px;"></div>
     <div id="analysisTableWrap" style="max-height:50vh; overflow-y:auto;"></div>
     <div class="modal-actions" style="margin-top:12px;">
+      <button class="btn btn-gold" id="btnAnalysisExport">📤 Експорт в Excel</button>
       <button class="btn" id="analysisModalClose">Закрити</button>
     </div>
   </div>
@@ -828,11 +891,12 @@
     <p style="font-size:12px; color:#7a6a52; margin:0 0 10px;">
       Завантаж фото реальної вітрини по точках продажу (наприклад, для звітності чи перевірки виконання планограми).
     </p>
-    <div class="board-actions" style="margin-bottom:12px; align-items:center;">
+    <div class="board-actions" style="margin-bottom:8px; align-items:center;">
       <select id="reportOutletSelect" style="padding:8px 10px; border-radius:7px; border:1px solid #cbb287; background:#fffdf8; color:#3a2f22; font-size:13px;"></select>
-      <input type="file" id="reportPhotoInput" accept="image/*" multiple style="display:none">
+      <input type="file" id="reportPhotoInput" accept="image/*" capture="environment" multiple style="display:none">
       <button class="btn btn-gold" id="btnReportAdd">📷 Додати фото до обраної точки</button>
     </div>
+    <input type="text" id="reportCommentInput" placeholder="Коментар до фото (необов'язково)" style="width:100%; box-sizing:border-box; padding:8px 10px; border-radius:7px; border:1px solid #cbb287; background:#fffdf8; color:#3a2f22; font-size:13px; margin-bottom:14px;">
     <div id="reportsList" style="max-height:55vh; overflow-y:auto;"></div>
     <div class="modal-actions" style="margin-top:12px;">
       <button class="btn" id="reportsModalClose">Закрити</button>
@@ -884,6 +948,11 @@
 <script>
 (function(){
   "use strict";
+
+  // ---------- mobile detection ----------
+  const isMobileDevice = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent)
+    || (window.innerWidth <= 820 && 'ontouchstart' in window);
+  if(isMobileDevice) document.documentElement.classList.add('is-mobile');
 
   const CAT_COLORS = { bread:'var(--c-bread)', cake:'var(--c-cake)', pastry:'var(--c-pastry)', cookie:'var(--c-cookie)', other:'var(--c-other)' };
   const CAT_LABELS = { bread:'Хліб', cake:'Торти', pastry:'Тістечка', cookie:'Печиво/кекси', other:'Інше' };
@@ -1038,6 +1107,24 @@
     }
   }
 
+  function showOutletQr(outletName, pin){
+    const holder = document.getElementById('qrCodeHolder');
+    holder.innerHTML = '';
+    const url = window.location.origin + window.location.pathname + '?pin=' + encodeURIComponent(pin);
+    document.getElementById('qrModalDesc').textContent =
+      `Точка «${outletName}» — PIN: ${pin}. Відскануй камерою телефону, щоб одразу увійти без ручного набору.`;
+    try{
+      new QRCode(holder, { text: url, width:200, height:200, colorDark:'#2b2107', colorLight:'#ffffff' });
+    }catch(e){ console.error('QR generation failed', e); holder.textContent = 'Не вдалося згенерувати QR'; }
+    document.getElementById('qrModalBg').classList.add('open');
+  }
+  document.getElementById('qrModalClose').addEventListener('click', ()=>{
+    document.getElementById('qrModalBg').classList.remove('open');
+  });
+  document.getElementById('qrModalBg').addEventListener('click', (e)=>{
+    if(e.target.id === 'qrModalBg') document.getElementById('qrModalBg').classList.remove('open');
+  });
+
   function setupPinGate(){
     const gate = document.getElementById('pinGate');
     const appRoot = document.getElementById('appRoot');
@@ -1091,7 +1178,17 @@
     }
     submitBtn.addEventListener('click', tryUnlock);
     input.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') tryUnlock(); });
-    setTimeout(()=> input.focus(), 100);
+
+    // if opened via a QR code (?pin=1234), auto-fill and auto-submit
+    const urlPin = new URLSearchParams(window.location.search).get('pin');
+    if(urlPin){
+      input.value = urlPin;
+      // clean the PIN out of the visible URL so it's not left in browser history
+      window.history.replaceState({}, '', window.location.pathname);
+      setTimeout(tryUnlock, 200);
+    } else {
+      setTimeout(()=> input.focus(), 100);
+    }
   }
   setupPinGate();
   initFirebase();
@@ -2114,6 +2211,7 @@
           });
           logAction(`Встановлено PIN для точки «${o.name || 'Без назви'}»`);
           showToast(`PIN для «${o.name || 'точки'}» збережено`);
+          showOutletQr(o.name || 'Без назви', pin);
           pinInput.value = '';
         }catch(e){
           console.error(e);
@@ -2265,6 +2363,7 @@
           <span>
             <div class="r-outlet">${escapeHtml(outletName(r.outletId))}</div>
             <span class="r-date">${d.toLocaleDateString('uk-UA')} ${d.toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'})}</span>
+            ${r.comment ? `<div class="r-comment">💬 ${escapeHtml(r.comment)}</div>` : ''}
           </span>
           <button class="r-del" data-action="del-report" title="Видалити">✕</button>
         </div>`;
@@ -2355,6 +2454,32 @@
     }
   });
 
+  document.getElementById('publishGoAll').addEventListener('click', async ()=>{
+    if(outlets.length === 0){ showToast('Немає точок продажу'); return; }
+    const ok = await showConfirm(`Опублікувати поточну вітрину для всіх ${outlets.length} точок продажу? Це замінить те, що було опубліковано для кожної раніше.`, 'Опублікувати для всіх?');
+    if(!ok) return;
+    const snapshot = {
+      title: state.title,
+      shelfCount: state.shelfCount,
+      shelves: state.shelves,
+      shelfNotes: state.shelfNotes,
+      publishedAt: Date.now()
+    };
+    let done = 0;
+    for(const o of outlets){
+      try{
+        await cloudStorage.set(PUBLISHED_PREFIX + o.id, JSON.stringify(snapshot));
+        done++;
+      }catch(e){ console.warn('publish failed for', o.name, e); }
+    }
+    logAction(`Опубліковано планограму для ВСІХ точок (${done}/${outlets.length})`);
+    showToast(`Опубліковано для ${done} з ${outlets.length} точок`);
+    renderPublishStatus();
+  });
+
+  let lastAnalysisRows = [];
+  let lastAnalysisRange = { from:'', to:'' };
+
   async function runAnalysis(){
     const wrap = document.getElementById('analysisTableWrap');
     const summaryEl = document.getElementById('analysisSummary');
@@ -2367,11 +2492,13 @@
     const fromTs = new Date(fromVal + 'T00:00:00').getTime();
     const toTs = new Date(toVal + 'T23:59:59').getTime();
     if(fromTs > toTs){ showToast('«Від» пізніше за «До»'); wrap.innerHTML=''; return; }
+    lastAnalysisRange = { from: fromVal, to: toVal };
 
     await loadOutlets();
     const { ok, items } = await loadReports();
     if(!ok){
       wrap.innerHTML = '<div class="empty-note">⚠️ Не вдалося завантажити дані. Перевір правила Firestore.</div>';
+      lastAnalysisRows = [];
       return;
     }
 
@@ -2382,6 +2509,7 @@
       const lastTs = mine.length ? Math.max(...mine.map(r=>r.ts)) : null;
       return { outlet:o, count: mine.length, lastTs };
     }).sort((a,b)=> a.outlet.name.localeCompare(b.outlet.name, 'uk'));
+    lastAnalysisRows = rows;
 
     const submitted = rows.filter(r=>r.count>0).length;
     summaryEl.textContent = `Здали звіт: ${submitted} з ${rows.length} точок` + (rows.length ? ` (${Math.round(submitted/rows.length*100)}%)` : '');
@@ -2407,6 +2535,44 @@
     html += '</tbody></table>';
     wrap.innerHTML = html;
   }
+
+  document.getElementById('btnAnalysisExport').addEventListener('click', async ()=>{
+    if(lastAnalysisRows.length === 0){ showToast('Спершу натисни «Сформувати»'); return; }
+    if(typeof ExcelJS === 'undefined'){ showToast('Бібліотека Excel ще завантажується'); return; }
+    try{
+      const wb = new ExcelJS.Workbook();
+      const sheet = wb.addWorksheet('Аналіз звітів');
+      sheet.columns = [
+        { header:'Точка', key:'name', width:26 },
+        { header:'Фото за період', key:'count', width:16 },
+        { header:'Останнє фото', key:'last', width:16 },
+        { header:'Статус', key:'status', width:14 },
+      ];
+      sheet.getRow(1).font = { bold:true };
+      lastAnalysisRows.forEach(r=>{
+        sheet.addRow({
+          name: r.outlet.name || 'Без назви',
+          count: r.count,
+          last: r.lastTs ? new Date(r.lastTs).toLocaleDateString('uk-UA') : '—',
+          status: r.count === 0 ? 'Не здав' : 'Здав'
+        });
+      });
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `analiz_zvitiv_${lastAnalysisRange.from}_${lastAnalysisRange.to}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      logAction('Експортовано аналіз фото-звітів в Excel');
+      showToast('Excel-файл згенеровано');
+    }catch(err){
+      console.error(err);
+      showToast('Не вдалося створити Excel-файл');
+    }
+  });
 
   document.getElementById('btnReportsAnalysis').addEventListener('click', ()=>{
     document.getElementById('analysisFrom').value = daysAgoISO(7);
@@ -2453,18 +2619,20 @@
     if(!db){ showToast('Firebase не налаштовано'); return; }
     const outletId = document.getElementById('reportOutletSelect').value;
     if(!outletId){ showToast('Спершу обери точку продажу'); return; }
+    const comment = document.getElementById('reportCommentInput').value.trim();
     let added = 0;
     for(const file of files){
       if(!file.type.startsWith('image/')) continue;
       try{
         const dataUrl = await resizeImageFile(file, 900);
-        await db.collection('planogram_reports').add({ photo: dataUrl, outletId, outletName: outletName(outletId), ts: Date.now(), role: currentRole || 'unknown' });
+        await db.collection('planogram_reports').add({ photo: dataUrl, comment, outletId, outletName: outletName(outletId), ts: Date.now(), role: currentRole || 'unknown' });
         added++;
       }catch(err){ console.error(err); }
     }
     if(added){
       logAction(`Завантажено фото-звітів для «${outletName(outletId)}»: ${added}`);
       showToast(`Додано фото: ${added}`);
+      document.getElementById('reportCommentInput').value = '';
       renderReports();
     } else {
       showToast('Не вдалося завантажити фото');
@@ -2813,7 +2981,10 @@
       card.innerHTML = `
         <img src="${r.photo}" alt="">
         <div class="r-info">
-          <span class="r-date">${d.toLocaleDateString('uk-UA')} ${d.toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'})}</span>
+          <span>
+            <span class="r-date">${d.toLocaleDateString('uk-UA')} ${d.toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'})}</span>
+            ${r.comment ? `<div class="r-comment">💬 ${escapeHtml(r.comment)}</div>` : ''}
+          </span>
         </div>`;
       list.appendChild(card);
     });
@@ -2881,13 +3052,14 @@
     e.target.value = '';
     if(files.length === 0) return;
     if(!db){ showToast('Firebase не налаштовано'); return; }
+    const comment = document.getElementById('storeCommentInput').value.trim();
     let added = 0;
     for(const file of files){
       if(!file.type.startsWith('image/')) continue;
       try{
         const dataUrl = await resizeImageFile(file, 900);
         await db.collection('planogram_reports').add({
-          photo: dataUrl, outletId: currentStoreOutletId, outletName: currentStoreOutletName,
+          photo: dataUrl, comment, outletId: currentStoreOutletId, outletName: currentStoreOutletName,
           ts: Date.now(), role: 'store'
         });
         added++;
@@ -2896,6 +3068,7 @@
     if(added){
       logAction(`[Магазин «${currentStoreOutletName}»] Завантажено фото-звітів: ${added}`);
       showToast(`Додано фото: ${added}`);
+      document.getElementById('storeCommentInput').value = '';
       renderStoreReports();
     } else {
       showToast('Не вдалося завантажити фото');
