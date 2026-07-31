@@ -124,17 +124,39 @@
   }
 
   /* Store role: only the dedicated report panel is visible — everything else about the
-     catalog, shelves, and other stores' data is completely hidden. */
-  .role-store .board-actions > *:not(#roleBadge):not(#btnLock){
+     catalog, shelves, other stores' data, and the standard toolbar is completely hidden. */
+  .role-store .board{
     display:none !important;
   }
   #storeReportPanel{display:none;}
   .store-panel-box{
     background:var(--paper); color:#3a2f22; border-radius:12px; padding:24px;
-    max-width:640px; margin:0 auto;
+    max-width:920px; margin:0 auto;
   }
-  .store-panel-box h2{font-family:'Neucha', cursive; font-size:26px; margin:0 0 4px;}
-  .store-panel-box p{font-size:13px; color:#7a6a52; margin:0 0 18px;}
+  .store-panel-head{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:4px;}
+  .store-panel-box h2{font-family:'Neucha', cursive; font-size:26px; margin:0;}
+  .store-panel-box p{font-size:13px; color:#7a6a52; margin:8px 0 18px;}
+  .store-section-title{
+    font-size:14px; font-weight:700; color:#4a3826; margin:22px 0 10px;
+    padding-top:16px; border-top:1px dashed #cbb287;
+  }
+  .store-section-title:first-of-type{border-top:none; padding-top:0; margin-top:14px;}
+
+  .store-planogram-view{display:flex; flex-direction:column; gap:10px;}
+  .ro-shelf{
+    background:linear-gradient(180deg, #efe3cc, #e6d6b4); border-radius:6px; padding:10px 12px;
+  }
+  .ro-shelf-head{font-family:'Neucha', cursive; font-size:17px; color:#4a3826; margin-bottom:6px; display:flex; align-items:center; gap:8px;}
+  .ro-shelf-head .badge{
+    font-family:'Golos Text', sans-serif; font-size:10px; font-weight:700;
+    background:var(--wood-dark); color:#f3ead9; border-radius:10px; padding:2px 8px;
+  }
+  .ro-note{font-size:11.5px; color:#6b5a3f; background:#f4e9d3; border:1px dashed #cbb287; border-radius:6px; padding:5px 8px; margin-bottom:7px;}
+  .ro-items{display:flex; flex-wrap:wrap; gap:7px; align-items:flex-end;}
+  .ro-card{background:var(--paper); border-radius:5px; padding:6px 8px; min-width:56px;}
+  .ro-card .ro-top{height:4px; border-radius:3px 3px 0 0; margin:-6px -8px 5px;}
+  .ro-card img{width:100%; height:52px; object-fit:cover; border-radius:3px; margin-bottom:4px; display:block;}
+  .ro-card .ro-name{font-size:10px; font-weight:700; color:#3a2f22; line-height:1.2;}
 
   /* ---------- Gallery (assortment view) ---------- */
   .gallery-modal{
@@ -592,6 +614,7 @@
         <button class="btn" id="btnPdf">📄 PDF</button>
         <button class="btn" id="btnGallery">🖼 Асортимент</button>
         <button class="btn" id="btnLog">📜 Лог змін</button>
+        <button class="btn btn-gold" id="btnPublish">📌 Опублікувати для точки</button>
         <button class="btn" id="btnOutlets">🏬 Точки продажу</button>
         <button class="btn" id="btnReports">📷 Фото-звіти</button>
         <button class="btn" id="btnReportsAnalysis">📊 Аналіз звітів</button>
@@ -610,9 +633,16 @@
   </div>
 
   <div id="storeReportPanel">
-    <div class="store-panel-box">
-      <h2 id="storePanelTitle">🏬 Магазин</h2>
-      <p>Тут можна завантажити фото-звіт вітрини саме для цієї точки продажу.</p>
+    <div class="store-panel-box" id="storePanelBox">
+      <div class="store-panel-head">
+        <h2 id="storePanelTitle">🏬 Магазин</h2>
+        <button class="btn" id="btnStoreLock" title="Заблокувати / змінити користувача">🔒 Змінити користувача</button>
+      </div>
+
+      <h3 class="store-section-title">🗂 Планограма цієї точки (перегляд)</h3>
+      <div id="storePlanogramView" class="store-planogram-view"></div>
+
+      <h3 class="store-section-title">📷 Фото-звіти</h3>
       <input type="file" id="storePhotoInput" accept="image/*" multiple style="display:none">
       <button class="btn btn-gold" id="btnStorePhotoAdd" style="margin-bottom:16px;">📷 Додати фото</button>
       <div id="storeReportsList" class="report-grid"></div>
@@ -723,6 +753,22 @@
     <div id="outletsList" style="max-height:50vh; overflow-y:auto;"></div>
     <div class="modal-actions" style="margin-top:12px;">
       <button class="btn" id="outletsModalClose">Закрити</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="publishModalBg">
+  <div class="modal">
+    <h3>📌 Опублікувати для точки</h3>
+    <p style="font-size:12.5px; color:#7a6a52; margin:0 0 12px;">
+      Точка продажу побачить саме той стан полиць (розкладку, назви, фото), який зараз тут відкритий, —
+      у режимі перегляду. Каталог товарів спільний для всіх.
+    </p>
+    <select id="publishOutletSelect" class="modal-input"></select>
+    <div id="publishStatusList" style="max-height:30vh; overflow-y:auto; margin-bottom:6px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-gold" id="publishGo">Опублікувати поточну вітрину</button>
+      <button class="btn" id="publishModalClose">Закрити</button>
     </div>
   </div>
 </div>
@@ -1621,6 +1667,7 @@
   });
 
   document.getElementById('btnLock').addEventListener('click', lockApp);
+  document.getElementById('btnStoreLock').addEventListener('click', lockApp);
 
   document.getElementById('btnReset').addEventListener('click', async ()=>{
     const ok = await showConfirm('Скинути поточну вітрину і почати заново? Збережені вітрини не постраждають.', 'Скинути вітрину?');
@@ -2219,6 +2266,69 @@
     return d.toISOString().slice(0,10);
   }
 
+  // ---------- publish current planogram snapshot to a specific outlet ----------
+  const PUBLISHED_PREFIX = 'planogram:published:';
+
+  async function openPublishModal(){
+    await loadOutlets();
+    const sel = document.getElementById('publishOutletSelect');
+    if(outlets.length === 0){
+      sel.innerHTML = '<option value="">Немає точок продажу — спершу додай у «🏬 Точки продажу»</option>';
+    } else {
+      sel.innerHTML = outlets.map(o=>`<option value="${o.id}">${escapeHtml(o.name||'Без назви')}</option>`).join('');
+    }
+    await renderPublishStatus();
+    document.getElementById('publishModalBg').classList.add('open');
+  }
+
+  async function renderPublishStatus(){
+    const wrap = document.getElementById('publishStatusList');
+    if(outlets.length === 0){ wrap.innerHTML=''; return; }
+    wrap.innerHTML = '<div class="empty-note">Перевірка стану публікацій…</div>';
+    const rows = [];
+    for(const o of outlets){
+      try{
+        const r = await cloudStorage.get(PUBLISHED_PREFIX + o.id);
+        if(r && r.value){
+          const data = JSON.parse(r.value);
+          rows.push(`<div class="log-row"><span class="log-text">${escapeHtml(o.name||'Без назви')}</span><span class="log-time">опубліковано ${new Date(data.publishedAt).toLocaleDateString('uk-UA')}</span></div>`);
+        } else {
+          rows.push(`<div class="log-row"><span class="log-text">${escapeHtml(o.name||'Без назви')}</span><span class="log-time" style="color:#b8543b;">ще не публікувалось</span></div>`);
+        }
+      }catch(e){ /* skip */ }
+    }
+    wrap.innerHTML = rows.join('') || '';
+  }
+
+  document.getElementById('btnPublish').addEventListener('click', openPublishModal);
+  document.getElementById('publishModalClose').addEventListener('click', ()=>{
+    document.getElementById('publishModalBg').classList.remove('open');
+  });
+  document.getElementById('publishModalBg').addEventListener('click', (e)=>{
+    if(e.target.id === 'publishModalBg') document.getElementById('publishModalBg').classList.remove('open');
+  });
+  document.getElementById('publishGo').addEventListener('click', async ()=>{
+    const outletId = document.getElementById('publishOutletSelect').value;
+    if(!outletId){ showToast('Обери точку продажу'); return; }
+    const outlet = outlets.find(o=>o.id===outletId);
+    const snapshot = {
+      title: state.title,
+      shelfCount: state.shelfCount,
+      shelves: state.shelves,
+      shelfNotes: state.shelfNotes,
+      publishedAt: Date.now()
+    };
+    try{
+      await cloudStorage.set(PUBLISHED_PREFIX + outletId, JSON.stringify(snapshot));
+      logAction(`Опубліковано планограму для точки «${outlet ? outlet.name : outletId}»`);
+      showToast(`Опубліковано для «${outlet ? outlet.name : ''}»`);
+      renderPublishStatus();
+    }catch(e){
+      console.error(e);
+      showToast('Не вдалося опублікувати');
+    }
+  });
+
   async function runAnalysis(){
     const wrap = document.getElementById('analysisTableWrap');
     const summaryEl = document.getElementById('analysisSummary');
@@ -2670,8 +2780,57 @@
     });
   }
 
+  async function renderStorePlanogramView(){
+    const wrap = document.getElementById('storePlanogramView');
+    wrap.innerHTML = '<div class="empty-note">Завантаження…</div>';
+    try{
+      const [pubRes, catRes] = await Promise.all([
+        cloudStorage.get(PUBLISHED_PREFIX + currentStoreOutletId),
+        cloudStorage.get(CUR_KEY)
+      ]);
+      if(!pubRes || !pubRes.value){
+        wrap.innerHTML = '<div class="empty-note">Для цієї точки ще не опубліковано планограму. Зверніться до адміністратора.</div>';
+        return;
+      }
+      const pub = JSON.parse(pubRes.value);
+      const catalog = (catRes && catRes.value) ? (JSON.parse(catRes.value).catalog || []) : [];
+      const findP = id => catalog.find(p=>p.id===id);
+
+      let html = '';
+      const shelves = pub.shelves || [];
+      const notes = pub.shelfNotes || [];
+      shelves.forEach((items, i)=>{
+        const note = notes[i] || '';
+        html += `<div class="ro-shelf">
+          <div class="ro-shelf-head">Полиця ${i+1} <span class="badge">${items.length} товар(ів)</span></div>
+          ${note ? `<div class="ro-note">📝 ${escapeHtml(note)}</div>` : ''}
+          <div class="ro-items">`;
+        if(items.length === 0){
+          html += `<div class="empty-note" style="padding:4px;">Порожньо</div>`;
+        } else {
+          items.forEach(inst=>{
+            const p = findP(inst.productId);
+            if(!p) return;
+            const w = inst.w || 84;
+            html += `<div class="ro-card" style="width:${w}px">
+              <div class="ro-top" style="background:${CAT_COLORS[p.cat]||'#999'}"></div>
+              ${p.photo ? `<img src="${p.photo}" alt="">` : ''}
+              <div class="ro-name">${escapeHtml(p.name)}</div>
+            </div>`;
+          });
+        }
+        html += `</div></div>`;
+      });
+      wrap.innerHTML = html || '<div class="empty-note">Планограма порожня.</div>';
+    }catch(e){
+      console.error(e);
+      wrap.innerHTML = '<div class="empty-note">⚠️ Не вдалося завантажити планограму.</div>';
+    }
+  }
+
   window.addEventListener('store-unlocked', ()=>{
     document.getElementById('storePanelTitle').textContent = `🏬 ${currentStoreOutletName}`;
+    renderStorePlanogramView();
     renderStoreReports();
   });
 
