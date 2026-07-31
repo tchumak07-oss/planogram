@@ -113,6 +113,23 @@
     border-radius:20px; padding:7px 14px; display:flex; align-items:center;
   }
 
+  .dropdown{position:relative; display:inline-block;}
+  .dropdown-menu{
+    display:none;
+    position:absolute; top:calc(100% + 6px); left:0; z-index:200;
+    background:var(--paper); border-radius:8px; padding:6px;
+    box-shadow:0 10px 26px rgba(0,0,0,.4); min-width:230px;
+    flex-direction:column; gap:2px;
+  }
+  .dropdown.open .dropdown-menu{display:flex;}
+  .dropdown-item{
+    display:block; width:100%; text-align:left;
+    font-family:'Golos Text', sans-serif; font-size:13px; font-weight:600;
+    color:#3a2f22; background:transparent; border:none; border-radius:6px;
+    padding:9px 10px; cursor:pointer; white-space:nowrap;
+  }
+  .dropdown-item:hover{background:#f4e9d3;}
+
   /* Staff role: catalog editing (SKU management) is hidden — only shelf building stays available */
   .role-staff .add-form,
   .role-staff #btnImport,
@@ -606,10 +623,17 @@
       <div class="board-actions">
         <span class="role-badge" id="roleBadge"></span>
         <button class="btn" id="btnLock" title="Заблокувати / змінити користувача">🔒 Змінити користувача</button>
-        <button class="btn" id="btnImport" title="Колонки: Назва, Категорія, Розмір">📥 З Excel</button>
-        <input type="file" id="excelInput" accept=".xlsx,.xls,.csv" style="display:none">
-        <button class="btn" id="btnImportJson" title="Відновити дані зі старого JSON-експорту">⬆ Імпорт JSON</button>
-        <button class="btn" id="btnExportExcel" title="Каталог товарів з фото">📤 Excel з фото</button>
+
+        <div class="dropdown" id="dataDropdown">
+          <button class="btn" id="btnDataMenu">📁 Дані ▾</button>
+          <div class="dropdown-menu" id="dataMenu">
+            <button class="dropdown-item" id="btnImport" title="Колонки: Назва, Категорія, Розмір">📥 Імпорт з Excel</button>
+            <button class="dropdown-item" id="btnImportJson" title="Відновити дані зі старого JSON-експорту">⬆ Імпорт JSON</button>
+            <button class="dropdown-item" id="btnExportExcel" title="Каталог товарів з фото">📤 Експорт в Excel (з фото)</button>
+          </div>
+          <input type="file" id="excelInput" accept=".xlsx,.xls,.csv" style="display:none">
+        </div>
+
         <button class="btn" id="btnMy">📋 Мої вітрини</button>
         <button class="btn" id="btnSave">💾 Зберегти</button>
         <button class="btn" id="btnPrint">🖨 Друк</button>
@@ -2506,6 +2530,19 @@
     }
     return -1;
   }
+
+  // ---------- data dropdown menu ----------
+  const dataDropdown = document.getElementById('dataDropdown');
+  document.getElementById('btnDataMenu').addEventListener('click', (e)=>{
+    e.stopPropagation();
+    dataDropdown.classList.toggle('open');
+  });
+  document.getElementById('dataMenu').addEventListener('click', (e)=>{
+    if(e.target.closest('.dropdown-item')) dataDropdown.classList.remove('open');
+  });
+  document.addEventListener('click', (e)=>{
+    if(!dataDropdown.contains(e.target)) dataDropdown.classList.remove('open');
+  });
 
   document.getElementById('btnImport').addEventListener('click', ()=>{
     document.getElementById('excelInput').click();
