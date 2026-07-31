@@ -844,6 +844,16 @@
   </div>
 </div>
 
+<div class="modal-bg" id="previewModalBg">
+  <div class="modal pdf-modal">
+    <h3 id="previewModalTitle">🗂 Планограма точки</h3>
+    <div id="previewPlanogramView" class="store-planogram-view" style="max-height:60vh; overflow-y:auto;"></div>
+    <div class="modal-actions" style="margin-top:12px;">
+      <button class="btn" id="previewModalClose">Закрити</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="publishModalBg">
   <div class="modal">
     <h3>📌 Опублікувати для точки</h3>
@@ -851,7 +861,10 @@
       Точка продажу побачить саме той стан полиць (розкладку, назви, фото), який зараз тут відкритий, —
       у режимі перегляду. Каталог товарів спільний для всіх.
     </p>
-    <select id="publishOutletSelect" class="modal-input"></select>
+    <div style="display:flex; gap:8px; margin-bottom:12px;">
+      <select id="publishOutletSelect" class="modal-input" style="margin-bottom:0; flex:1;"></select>
+      <button class="btn" id="btnPublishPreview" style="flex-shrink:0;">👁 Переглянути</button>
+    </div>
     <div id="publishStatusList" style="max-height:30vh; overflow-y:auto; margin-bottom:6px;"></div>
     <div class="modal-actions">
       <button class="btn btn-gold" id="publishGo">Опублікувати для обраної</button>
@@ -2477,6 +2490,21 @@
     renderPublishStatus();
   });
 
+  document.getElementById('btnPublishPreview').addEventListener('click', ()=>{
+    const outletId = document.getElementById('publishOutletSelect').value;
+    if(!outletId){ showToast('Обери точку продажу'); return; }
+    const outlet = outlets.find(o=>o.id===outletId);
+    document.getElementById('previewModalTitle').textContent = `🗂 Планограма: ${outlet ? outlet.name : ''}`;
+    document.getElementById('previewModalBg').classList.add('open');
+    renderPublishedPlanogramInto(document.getElementById('previewPlanogramView'), outletId);
+  });
+  document.getElementById('previewModalClose').addEventListener('click', ()=>{
+    document.getElementById('previewModalBg').classList.remove('open');
+  });
+  document.getElementById('previewModalBg').addEventListener('click', (e)=>{
+    if(e.target.id === 'previewModalBg') document.getElementById('previewModalBg').classList.remove('open');
+  });
+
   let lastAnalysisRows = [];
   let lastAnalysisRange = { from:'', to:'' };
 
@@ -2990,16 +3018,15 @@
     });
   }
 
-  async function renderStorePlanogramView(){
-    const wrap = document.getElementById('storePlanogramView');
+  async function renderPublishedPlanogramInto(wrap, outletId){
     wrap.innerHTML = '<div class="empty-note">Завантаження…</div>';
     try{
       const [pubRes, catRes] = await Promise.all([
-        cloudStorage.get(PUBLISHED_PREFIX + currentStoreOutletId),
+        cloudStorage.get(PUBLISHED_PREFIX + outletId),
         cloudStorage.get(CUR_KEY)
       ]);
       if(!pubRes || !pubRes.value){
-        wrap.innerHTML = '<div class="empty-note">Для цієї точки ще не опубліковано планограму. Зверніться до адміністратора.</div>';
+        wrap.innerHTML = '<div class="empty-note">Для цієї точки ще не опубліковано планограму.</div>';
         return;
       }
       const pub = JSON.parse(pubRes.value);
@@ -3032,10 +3059,18 @@
         html += `</div></div>`;
       });
       wrap.innerHTML = html || '<div class="empty-note">Планограма порожня.</div>';
+      const meta = document.createElement('div');
+      meta.style.cssText = 'font-size:11px; color:#a3906c; margin-top:10px;';
+      meta.textContent = 'Опубліковано: ' + new Date(pub.publishedAt).toLocaleString('uk-UA');
+      wrap.appendChild(meta);
     }catch(e){
       console.error(e);
       wrap.innerHTML = '<div class="empty-note">⚠️ Не вдалося завантажити планограму.</div>';
     }
+  }
+
+  function renderStorePlanogramView(){
+    return renderPublishedPlanogramInto(document.getElementById('storePlanogramView'), currentStoreOutletId);
   }
 
   window.addEventListener('store-unlocked', ()=>{
