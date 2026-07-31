@@ -123,6 +123,19 @@
     display:none !important;
   }
 
+  /* Store role: only the dedicated report panel is visible — everything else about the
+     catalog, shelves, and other stores' data is completely hidden. */
+  .role-store .board-actions > *:not(#roleBadge):not(#btnLock){
+    display:none !important;
+  }
+  #storeReportPanel{display:none;}
+  .store-panel-box{
+    background:var(--paper); color:#3a2f22; border-radius:12px; padding:24px;
+    max-width:640px; margin:0 auto;
+  }
+  .store-panel-box h2{font-family:'Neucha', cursive; font-size:26px; margin:0 0 4px;}
+  .store-panel-box p{font-size:13px; color:#7a6a52; margin:0 0 18px;}
+
   /* ---------- Gallery (assortment view) ---------- */
   .gallery-modal{
     max-width:1000px; width:96%; max-height:90vh;
@@ -195,6 +208,17 @@
   .report-card img{width:100%; height:130px; object-fit:cover; display:block;}
   .report-card .r-info{padding:7px 9px; display:flex; justify-content:space-between; align-items:center; gap:6px;}
   .report-card .r-outlet{font-size:11.5px; font-weight:700; color:#3a2f22; margin-bottom:1px;}
+
+  .analysis-table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  .analysis-table th{
+    text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.04em;
+    color:#8a7a5f; padding:8px 10px; border-bottom:2px solid #e4d6b7;
+  }
+  .analysis-table td{padding:9px 10px; border-bottom:1px solid #eee0c4; color:#3a2f22;}
+  .analysis-table tr.missing td{background:rgba(184,84,59,.08);}
+  .analysis-status{font-weight:700; font-size:11.5px; padding:3px 9px; border-radius:10px; display:inline-block;}
+  .analysis-status.ok{background:rgba(111,143,106,.18); color:#4a6b46;}
+  .analysis-status.missing{background:rgba(184,84,59,.18); color:#8a3d29;}
   .report-card .r-date{font-size:10.5px; color:#8a7a5f;}
   .report-card .r-del{border:none; background:transparent; color:#b09a76; cursor:pointer; font-size:13px;}
   .report-card .r-del:hover{color:var(--red);}
@@ -570,6 +594,7 @@
         <button class="btn" id="btnLog">📜 Лог змін</button>
         <button class="btn" id="btnOutlets">🏬 Точки продажу</button>
         <button class="btn" id="btnReports">📷 Фото-звіти</button>
+        <button class="btn" id="btnReportsAnalysis">📊 Аналіз звітів</button>
         <button class="btn btn-outline-red" id="btnReset">↺ Скинути</button>
       </div>
     </div>
@@ -584,7 +609,17 @@
     </div>
   </div>
 
-  <div class="layout">
+  <div id="storeReportPanel">
+    <div class="store-panel-box">
+      <h2 id="storePanelTitle">🏬 Магазин</h2>
+      <p>Тут можна завантажити фото-звіт вітрини саме для цієї точки продажу.</p>
+      <input type="file" id="storePhotoInput" accept="image/*" multiple style="display:none">
+      <button class="btn btn-gold" id="btnStorePhotoAdd" style="margin-bottom:16px;">📷 Додати фото</button>
+      <div id="storeReportsList" class="report-grid"></div>
+    </div>
+  </div>
+
+  <div class="layout" id="mainLayoutArea">
     <aside class="catalog">
       <h2>🧁 Товари</h2>
       <p class="catalog-hint">Перетягни товар на полицю або натисни на нього — додасться на активну полицю.<br>Імпорт з Excel: колонки «Назва», «Категорія» (хліб/торти/тістечка/печиво-кекси/інше), «Розмір» (малий/середній/великий).</p>
@@ -677,7 +712,8 @@
     <h3>🏬 Точки продажу</h3>
     <p style="font-size:12px; color:#7a6a52; margin:0 0 10px;">
       Список твоїх точок продажу. Можна додати вручну або завантажити таблицею (Excel/CSV,
-      колонки: Назва, Адреса, Телефон).
+      колонки: Назва, Адреса, Телефон, PIN — колонка PIN необов'язкова, але якщо є,
+      код доступу для магазину встановиться одразу під час імпорту).
     </p>
     <div class="board-actions" style="margin-bottom:12px;">
       <button class="btn" id="btnOutletAdd">+ Додати вручну</button>
@@ -687,6 +723,29 @@
     <div id="outletsList" style="max-height:50vh; overflow-y:auto;"></div>
     <div class="modal-actions" style="margin-top:12px;">
       <button class="btn" id="outletsModalClose">Закрити</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="analysisModalBg">
+  <div class="modal pdf-modal">
+    <h3>📊 Аналіз фото-звітів</h3>
+    <p style="font-size:12px; color:#7a6a52; margin:0 0 12px;">
+      Показує, скільки фото завантажила кожна точка продажу за обраний період — і хто ще не здав звіт.
+    </p>
+    <div class="board-actions" style="margin-bottom:14px; align-items:center;">
+      <label style="font-size:12.5px; color:#6b5a3f;">Від
+        <input type="date" id="analysisFrom" style="margin-left:6px; padding:6px 8px; border-radius:6px; border:1px solid #cbb287;">
+      </label>
+      <label style="font-size:12.5px; color:#6b5a3f;">До
+        <input type="date" id="analysisTo" style="margin-left:6px; padding:6px 8px; border-radius:6px; border:1px solid #cbb287;">
+      </label>
+      <button class="btn btn-gold" id="btnAnalysisRun">Сформувати</button>
+    </div>
+    <div id="analysisSummary" style="font-size:13px; font-weight:600; color:#4a3826; margin-bottom:10px;"></div>
+    <div id="analysisTableWrap" style="max-height:50vh; overflow-y:auto;"></div>
+    <div class="modal-actions" style="margin-top:12px;">
+      <button class="btn" id="analysisModalClose">Закрити</button>
     </div>
   </div>
 </div>
@@ -867,23 +926,51 @@
     }
   }
 
+  let currentStoreOutletId = null;
+  let currentStoreOutletName = '';
+
   function applyRoleUI(){
-    document.body.classList.remove('role-admin','role-staff');
+    document.body.classList.remove('role-admin','role-staff','role-store');
     document.body.classList.add('role-' + currentRole);
     const badge = document.getElementById('roleBadge');
     if(badge){
-      badge.textContent = currentRole === 'admin' ? '👤 Адмін' : '👤 Планограмник';
+      if(currentRole === 'admin') badge.textContent = '👤 Адмін';
+      else if(currentRole === 'staff') badge.textContent = '👤 Планограмник';
+      else badge.textContent = `🏬 ${currentStoreOutletName}`;
+    }
+    const storePanel = document.getElementById('storeReportPanel');
+    const mainLayout = document.getElementById('mainLayoutArea');
+    if(currentRole === 'store'){
+      if(storePanel) storePanel.style.display = '';
+      if(mainLayout) mainLayout.style.display = 'none';
+    } else {
+      if(storePanel) storePanel.style.display = 'none';
+      if(mainLayout) mainLayout.style.display = '';
     }
   }
 
   function lockApp(){
     currentRole = null;
-    document.body.classList.remove('role-admin','role-staff');
+    currentStoreOutletId = null;
+    currentStoreOutletName = '';
+    document.body.classList.remove('role-admin','role-staff','role-store');
     document.getElementById('appRoot').style.display = 'none';
     document.getElementById('pinGate').style.display = 'flex';
     document.getElementById('pinInput').value = '';
     document.getElementById('pinError').textContent = '';
     setTimeout(()=> document.getElementById('pinInput').focus(), 100);
+  }
+
+  async function findStoreUserByHash(hash){
+    if(!db) return null;
+    try{
+      const snap = await db.collection('planogram_store_users').where('pinHash','==',hash).limit(1).get();
+      if(snap.empty) return null;
+      return snap.docs[0].data();
+    }catch(e){
+      console.warn('store PIN lookup failed', e);
+      return null;
+    }
   }
 
   function setupPinGate(){
@@ -896,10 +983,21 @@
     async function tryUnlock(){
       const val = input.value.trim();
       if(!val){ return; }
+      submitBtn.disabled = true;
       const hash = await sha256Hex(val);
       let role = null;
+
       if(hash === PIN_HASH_ADMIN) role = 'admin';
       else if(hash === PIN_HASH_STAFF) role = 'staff';
+      else {
+        const storeUser = await findStoreUserByHash(hash);
+        if(storeUser){
+          role = 'store';
+          currentStoreOutletId = storeUser.outletId;
+          currentStoreOutletName = storeUser.outletName || 'Магазин';
+        }
+      }
+      submitBtn.disabled = false;
 
       if(role){
         currentRole = role;
@@ -909,6 +1007,9 @@
         if(!window.__planogramUnlocked){
           window.__planogramUnlocked = true;
           window.dispatchEvent(new Event('planogram-unlocked'));
+        }
+        if(role === 'store'){
+          window.dispatchEvent(new Event('store-unlocked'));
         }
       } else {
         errEl.textContent = 'Невірний PIN. Спробуй ще раз.';
@@ -1911,6 +2012,8 @@
         <input class="o-name" placeholder="Назва" value="${escapeHtml(o.name||'')}">
         <input class="o-addr" placeholder="Адреса" value="${escapeHtml(o.address||'')}">
         <input class="o-phone" placeholder="Телефон" value="${escapeHtml(o.phone||'')}">
+        <input class="o-pin" type="text" inputmode="numeric" placeholder="PIN магазину" style="max-width:110px;">
+        <button class="btn btn-sm" data-action="set-pin" title="Встановити/змінити PIN для цього магазину">🔑</button>
         <button class="icon-btn" data-action="del-outlet" title="Видалити">✕</button>
       `;
       const save = ()=>{
@@ -1919,12 +2022,30 @@
         outlets[idx].phone = row.querySelector('.o-phone').value.trim();
         persistOutlets();
       };
-      row.querySelectorAll('input').forEach(inp => inp.addEventListener('change', save));
+      row.querySelectorAll('.o-name, .o-addr, .o-phone').forEach(inp => inp.addEventListener('change', save));
       row.querySelector('[data-action="del-outlet"]').addEventListener('click', ()=>{
         outlets.splice(idx, 1);
         logAction('Видалено точку продажу');
         persistOutlets();
         renderOutlets();
+      });
+      row.querySelector('[data-action="set-pin"]').addEventListener('click', async ()=>{
+        const pinInput = row.querySelector('.o-pin');
+        const pin = pinInput.value.trim();
+        if(!pin){ showToast('Введи PIN для цього магазину'); return; }
+        if(!db){ showToast('Firebase не налаштовано'); return; }
+        try{
+          const hash = await sha256Hex(pin);
+          await db.collection('planogram_store_users').doc(o.id).set({
+            outletId: o.id, outletName: o.name || 'Без назви', pinHash: hash, updatedAt: Date.now()
+          });
+          logAction(`Встановлено PIN для точки «${o.name || 'Без назви'}»`);
+          showToast(`PIN для «${o.name || 'точки'}» збережено`);
+          pinInput.value = '';
+        }catch(e){
+          console.error(e);
+          showToast('Не вдалося зберегти PIN');
+        }
       });
       list.appendChild(row);
     });
@@ -1966,27 +2087,51 @@
       let nameIdx = findHeaderIndex(headerRow, ['назв','name']);
       let addrIdx = findHeaderIndex(headerRow, ['адрес','address']);
       let phoneIdx = findHeaderIndex(headerRow, ['телефон','phone']);
+      let pinIdx = findHeaderIndex(headerRow, ['pin','пін','пин']);
       let dataRows;
-      if(nameIdx === -1){ nameIdx=0; addrIdx=1; phoneIdx=2; dataRows = rows; }
+      if(nameIdx === -1){ nameIdx=0; addrIdx=1; phoneIdx=2; pinIdx=-1; dataRows = rows; }
       else { dataRows = rows.slice(1); }
 
-      let added = 0;
+      let added = 0, updated = 0, pinsSet = 0;
+      const pinJobs = [];
       dataRows.forEach(row=>{
         const name = String(row[nameIdx]==null?'':row[nameIdx]).trim();
         if(!name) return;
-        outlets.push({
-          id: uid(),
-          name,
-          address: addrIdx!==-1 ? String(row[addrIdx]==null?'':row[addrIdx]).trim() : '',
-          phone: phoneIdx!==-1 ? String(row[phoneIdx]==null?'':row[phoneIdx]).trim() : ''
-        });
-        added++;
+        const address = addrIdx!==-1 ? String(row[addrIdx]==null?'':row[addrIdx]).trim() : '';
+        const phone = phoneIdx!==-1 ? String(row[phoneIdx]==null?'':row[phoneIdx]).trim() : '';
+        const pin = pinIdx!==-1 ? String(row[pinIdx]==null?'':row[pinIdx]).trim() : '';
+
+        let outlet = outlets.find(o => o.name.trim().toLowerCase() === name.toLowerCase());
+        if(outlet){
+          outlet.address = address || outlet.address;
+          outlet.phone = phone || outlet.phone;
+          updated++;
+        } else {
+          outlet = { id: uid(), name, address, phone };
+          outlets.push(outlet);
+          added++;
+        }
+        if(pin) pinJobs.push({ outletId: outlet.id, outletName: outlet.name, pin });
       });
-      if(added === 0){ showToast('Не знайдено жодної точки продажу'); return; }
-      logAction(`Імпортовано точок продажу з Excel: ${added}`);
+
+      if(added === 0 && updated === 0){ showToast('Не знайдено жодної точки продажу'); return; }
       await persistOutlets();
+
+      if(pinJobs.length && db){
+        for(const job of pinJobs){
+          try{
+            const hash = await sha256Hex(job.pin);
+            await db.collection('planogram_store_users').doc(job.outletId).set({
+              outletId: job.outletId, outletName: job.outletName, pinHash: hash, updatedAt: Date.now()
+            });
+            pinsSet++;
+          }catch(e){ console.warn('pin set failed for', job.outletName, e); }
+        }
+      }
+
+      logAction(`Імпортовано точок продажу з Excel: нових ${added}, оновлено ${updated}` + (pinsSet ? `, встановлено PIN: ${pinsSet}` : ''));
       renderOutlets();
-      showToast(`Додано точок продажу: ${added}`);
+      showToast(`Готово: нових ${added}, оновлено ${updated}` + (pinsSet ? `, PIN встановлено: ${pinsSet}` : ''));
     }catch(err){
       console.error(err);
       showToast('Не вдалося прочитати файл');
@@ -2027,7 +2172,10 @@
       list.innerHTML = '<div class="empty-note">⚠️ Не вдалося завантажити фото-звіти з бази. Відкрий консоль браузера (F12 → Console) — якщо там помилка про Firestore rules/permissions, онови правила безпеки (дивись інструкцію на початку файлу).</div>';
       return;
     }
-    const reports = selectedOutlet ? items.filter(r=>r.outletId===selectedOutlet) : items;
+    const selectedName = outlets.find(o=>o.id===selectedOutlet);
+    const reports = selectedOutlet
+      ? items.filter(r=> r.outletId===selectedOutlet || (r.outletName && selectedName && r.outletName === selectedName.name))
+      : items;
     if(reports.length === 0){
       list.innerHTML = '<div class="empty-note">Фото-звітів ще немає.</div>';
       return;
@@ -2059,6 +2207,86 @@
     list.innerHTML = '';
     list.appendChild(grid);
   }
+
+  // ---------- photo-report analysis (compliance by period) ----------
+  function todayISO(){
+    const d = new Date();
+    return d.toISOString().slice(0,10);
+  }
+  function daysAgoISO(n){
+    const d = new Date();
+    d.setDate(d.getDate()-n);
+    return d.toISOString().slice(0,10);
+  }
+
+  async function runAnalysis(){
+    const wrap = document.getElementById('analysisTableWrap');
+    const summaryEl = document.getElementById('analysisSummary');
+    wrap.innerHTML = '<div class="empty-note">Завантаження…</div>';
+    summaryEl.textContent = '';
+
+    const fromVal = document.getElementById('analysisFrom').value;
+    const toVal = document.getElementById('analysisTo').value;
+    if(!fromVal || !toVal){ showToast('Обери обидві дати'); wrap.innerHTML=''; return; }
+    const fromTs = new Date(fromVal + 'T00:00:00').getTime();
+    const toTs = new Date(toVal + 'T23:59:59').getTime();
+    if(fromTs > toTs){ showToast('«Від» пізніше за «До»'); wrap.innerHTML=''; return; }
+
+    await loadOutlets();
+    const { ok, items } = await loadReports();
+    if(!ok){
+      wrap.innerHTML = '<div class="empty-note">⚠️ Не вдалося завантажити дані. Перевір правила Firestore.</div>';
+      return;
+    }
+
+    const inRange = items.filter(r => r.ts >= fromTs && r.ts <= toTs);
+
+    const rows = outlets.map(o=>{
+      const mine = inRange.filter(r => r.outletId === o.id || (r.outletName && r.outletName === o.name));
+      const lastTs = mine.length ? Math.max(...mine.map(r=>r.ts)) : null;
+      return { outlet:o, count: mine.length, lastTs };
+    }).sort((a,b)=> a.outlet.name.localeCompare(b.outlet.name, 'uk'));
+
+    const submitted = rows.filter(r=>r.count>0).length;
+    summaryEl.textContent = `Здали звіт: ${submitted} з ${rows.length} точок` + (rows.length ? ` (${Math.round(submitted/rows.length*100)}%)` : '');
+
+    if(rows.length === 0){
+      wrap.innerHTML = '<div class="empty-note">Спершу додай точки продажу.</div>';
+      return;
+    }
+
+    let html = `<table class="analysis-table"><thead><tr>
+      <th>Точка</th><th>Фото за період</th><th>Останнє фото</th><th>Статус</th>
+    </tr></thead><tbody>`;
+    rows.forEach(r=>{
+      const missing = r.count === 0;
+      const lastStr = r.lastTs ? new Date(r.lastTs).toLocaleDateString('uk-UA') : '—';
+      html += `<tr class="${missing?'missing':''}">
+        <td>${escapeHtml(r.outlet.name || 'Без назви')}</td>
+        <td>${r.count}</td>
+        <td>${lastStr}</td>
+        <td><span class="analysis-status ${missing?'missing':'ok'}">${missing?'Не здав':'Здав'}</span></td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+  }
+
+  document.getElementById('btnReportsAnalysis').addEventListener('click', ()=>{
+    document.getElementById('analysisFrom').value = daysAgoISO(7);
+    document.getElementById('analysisTo').value = todayISO();
+    document.getElementById('analysisSummary').textContent = '';
+    document.getElementById('analysisTableWrap').innerHTML = '';
+    document.getElementById('analysisModalBg').classList.add('open');
+    runAnalysis();
+  });
+  document.getElementById('btnAnalysisRun').addEventListener('click', runAnalysis);
+  document.getElementById('analysisModalClose').addEventListener('click', ()=>{
+    document.getElementById('analysisModalBg').classList.remove('open');
+  });
+  document.getElementById('analysisModalBg').addEventListener('click', (e)=>{
+    if(e.target.id === 'analysisModalBg') document.getElementById('analysisModalBg').classList.remove('open');
+  });
 
   document.getElementById('btnReports').addEventListener('click', async ()=>{
     document.getElementById('reportsModalBg').classList.add('open');
@@ -2094,7 +2322,7 @@
       if(!file.type.startsWith('image/')) continue;
       try{
         const dataUrl = await resizeImageFile(file, 900);
-        await db.collection('planogram_reports').add({ photo: dataUrl, outletId, ts: Date.now(), role: currentRole || 'unknown' });
+        await db.collection('planogram_reports').add({ photo: dataUrl, outletId, outletName: outletName(outletId), ts: Date.now(), role: currentRole || 'unknown' });
         added++;
       }catch(err){ console.error(err); }
     }
@@ -2413,6 +2641,68 @@
     s.selectedShelf = 0;
     return s;
   }
+
+  // ---------- store role: dedicated single-outlet report panel ----------
+  async function renderStoreReports(){
+    const list = document.getElementById('storeReportsList');
+    list.innerHTML = '<div class="empty-note">Завантаження…</div>';
+    const { ok, items } = await loadReports();
+    if(!ok){
+      list.innerHTML = '<div class="empty-note">⚠️ Не вдалося завантажити фото. Перевір інтернет або звернись до адміна.</div>';
+      return;
+    }
+    const mine = items.filter(r => r.outletId === currentStoreOutletId || r.outletName === currentStoreOutletName);
+    if(mine.length === 0){
+      list.innerHTML = '<div class="empty-note">Фото-звітів для цього магазину ще немає.</div>';
+      return;
+    }
+    list.innerHTML = '';
+    mine.forEach(r=>{
+      const card = document.createElement('div');
+      card.className = 'report-card';
+      const d = new Date(r.ts);
+      card.innerHTML = `
+        <img src="${r.photo}" alt="">
+        <div class="r-info">
+          <span class="r-date">${d.toLocaleDateString('uk-UA')} ${d.toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'})}</span>
+        </div>`;
+      list.appendChild(card);
+    });
+  }
+
+  window.addEventListener('store-unlocked', ()=>{
+    document.getElementById('storePanelTitle').textContent = `🏬 ${currentStoreOutletName}`;
+    renderStoreReports();
+  });
+
+  document.getElementById('btnStorePhotoAdd').addEventListener('click', ()=>{
+    document.getElementById('storePhotoInput').click();
+  });
+  document.getElementById('storePhotoInput').addEventListener('change', async (e)=>{
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if(files.length === 0) return;
+    if(!db){ showToast('Firebase не налаштовано'); return; }
+    let added = 0;
+    for(const file of files){
+      if(!file.type.startsWith('image/')) continue;
+      try{
+        const dataUrl = await resizeImageFile(file, 900);
+        await db.collection('planogram_reports').add({
+          photo: dataUrl, outletId: currentStoreOutletId, outletName: currentStoreOutletName,
+          ts: Date.now(), role: 'store'
+        });
+        added++;
+      }catch(err){ console.error(err); }
+    }
+    if(added){
+      logAction(`[Магазин «${currentStoreOutletName}»] Завантажено фото-звітів: ${added}`);
+      showToast(`Додано фото: ${added}`);
+      renderStoreReports();
+    } else {
+      showToast('Не вдалося завантажити фото');
+    }
+  });
 
   // ---------- init ----------
   async function init(){
